@@ -7,4 +7,5 @@ Offical links for EdgeX:
 * [Github](https://github.com/edgexfoundry)
 * [EdgeX Compose Files](https://github.com/edgexfoundry/edgex-compose)
 * [Documentation](https://www.edgexfoundry.org/get-started/)
+* [AnyLog Document](https://github.com/AnyLog-co/documentation/blob/master/using%20edgex.md)
 
