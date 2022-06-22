@@ -2,8 +2,8 @@
 
 The following repository provides the scripts used by AnyLog to deploy EdgeX.
 
-Offical links for EdgeX: 
-* [Homepage](https://www.edgexfoundry.org/)
+**Offical Links**
+* [EdgeX Homepage](https://www.edgexfoundry.org/)
 * [Github](https://github.com/edgexfoundry)
 * [EdgeX Compose Files](https://github.com/edgexfoundry/edgex-compose)
 * [Documentation](https://www.edgexfoundry.org/get-started/)
@@ -43,3 +43,25 @@ docker-compose up -d
 bash setup.sh 
 ```
 
+## AnyLog
+In order for AnyLog to interpret the data coming in via MQTT, user needs to run the `run mqtt client` process. 
+The following is an example of the `run mqtt client` which is available via the configuration file(s) when deploying AnyLog for random data coming in via EdgeX. 
+```anylog
+# Local MQTT broker  
+<run mqtt client where broker=139.177.195.197 and port=32150 and log=false and topic=(
+    name=anylogedgex and 
+    dbms=edgex and
+    table=rand_data and 
+    column.timestamp.timestamp=now 
+    column.value=(type=float and value="bring [reading][][value]")
+)> 
+
+# Remote MQTT broker
+<run mqtt client where broker=driver.cloudmqtt.com and port=18785 and user=ibglowct and password=MSY4e009J7ts and log=false and topic=(
+    name=anylogedgex and 
+    dbms=edgex and
+    table=rand_data and 
+    column.timestamp.timestamp=now 
+    column.value=(type=float and value="bring [reading][][value]")
+)>  
+```
