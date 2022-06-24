@@ -9,6 +9,7 @@
 import aiohttp
 import asyncio
 import json
+import os
 import logging
 import base64
 
@@ -16,6 +17,8 @@ import numpy as np
 
 from fledge.common import logger
 from fledge.plugins.north.common.common import *
+
+FILE_PATH=os.path.expandvars(os.path.expanduser('$HOME/data.json'))
 
 __author__ = "Ori Shadmon"
 __copyright__ = "Copyright (c) 2022 AnyLog Co."
@@ -74,6 +77,13 @@ _DEFAULT_CONFIG = {
         'order': '5',
         'displayName': 'Filter Rule',
         "validity": "applyFilter == \"true\""
+    },
+    "topicName": {
+        "description": "Topic to send data to",
+        "type": "string",
+        "default": "foglamp",
+        "order": "6",
+        "displayName": "REST Topic Name"
     }
 }
 
@@ -207,6 +217,8 @@ class HttpNorthPlugin(object):
             'topic': 'fledge',
             'User-Agent': 'AnyLog/1.23',
             'content-type': 'text/plain'}
+        async with open(FILE_PATH, 'a') as f:
+            f.write(f'{_DEFAULT_CONFIG}\n{payload}\n\n')
         async with session.post(f'http://{url}', data=json.dumps(payload), headers=headers) as resp:
             result = await resp.text()
             status_code = resp.status
