@@ -247,7 +247,7 @@ vim /var/lib/docker/volumes/anylog-node_anylog-node-local-scripts/_data/local_sc
   name=anylogedgex and 
   dbms=test and 
   table="bring [readings][][value]" and 
-  column.edgex_id=(type=str, value="bring [readings][][id]") and 
+  column.edgex_id=(type=str and value="bring [readings][][id]") and 
   column.timestamp.timestamp=now and 
   column.value=(type=str and value="bring [readings][][value]")
 )>  
