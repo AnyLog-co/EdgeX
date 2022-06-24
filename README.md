@@ -176,7 +176,7 @@ MQTT_COLUMN_VALUE="bring [readings][][value]"
 * Getting data from the AnyLog broker, where values provided by EdgeX will correlate to table name & values -- 
 make sure that the `ANYLOG_BROKER_PORT` is set and **not** commented out  
 ```dotenv
-# MQTT parameters - the default recieves data from a remote MQTT broker
+# MQTT parameters - the default recieves data from a local MQTT broker
 MQTT_ENABLE=true
 BROKER=local
 MQTT_PORT=32150
