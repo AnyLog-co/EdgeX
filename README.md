@@ -146,7 +146,7 @@ The output should be something like this:
 ```
 
 ## AnyLog
-The [AnyLog deployment](https://github.com/AnyLog-co/deployments) configuration files, users can specify a basic 
+In [AnyLog deployment](https://github.com/AnyLog-co/deployments) configuration files, users can specify a basic 
 `timestamp`/`value` MQTT configurations. Howerver, they can also create more complex configurations either via REST or 
 when the updating _local_script.al_ file. 
 
@@ -255,7 +255,7 @@ vim /var/lib/docker/volumes/anylog-node_anylog-node-local-scripts/_data/local_sc
 
 4. Execute `local_script.al` against AnyLog 
 ```bash 
-# Within AnyLog CMD line
+# Within AnyLog User-CMD 
 process  !anylog_path/AnyLog-Network/scripts/local_script.al
 
 # via cURL 
