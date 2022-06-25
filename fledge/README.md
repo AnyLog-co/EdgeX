@@ -3,8 +3,10 @@
 The following code is based on [fledge-http-north](https://github.com/fledge-iot/fledge-north-http), but instead of 
 sending data between FLEDGE nodes, it allows sending data into AnyLog via REST POST. The main difference between two 
 plugins are: 
-1. In `plugin_send`, now iterates to validate that the correct assets are sent against to correct REST POST topic    
-2. The `_send_payloads` process has a slightly different REST header 
+1. `plugin_send` checks that there's a correlation between the declared asset(s) and the topic they're sent to. If
+no assets are declared in the configuration, then all assets will be sent against the given topic.  
+2. `_send_payloads` has an updated REST _header_, which is supported by AnyLog; rather than the one used between FLEDGE    
+nodes.
 
 ## Deployment & Configuring on the Fledge Side
 0. [Deploy FLEDDGE](https://fledge-iot.readthedocs.io/en/latest/quick_start/index.html) 
