@@ -1,4 +1,4 @@
-#LF Edge
+# LF Edge
 The following provides in regards to sending data from [EdgeX](edgex/README.md) and/or [FLEDGE](fledge/README.md) into
 an AnyLog node.  
  
