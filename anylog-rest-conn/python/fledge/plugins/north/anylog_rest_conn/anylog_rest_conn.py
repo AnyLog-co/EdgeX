@@ -84,7 +84,21 @@ _DEFAULT_CONFIG = {
         "default": "foglamp",
         "order": "6",
         "displayName": "REST Topic Name"
+    },
+    "assetList": {
+        "description": "Comma separatedd assets to use with this topic",
+        "type": "string",
+        "default": "",
+        "order": "7",
+        "displayName": "Asset List"
     }
+    "dbName": {
+        "description": "Logical database name",
+        "type": "string",
+        "default": "foglamp",
+        "order": "8",
+        "displayName": "Database Name"
+    },
 }
 
 
@@ -108,12 +122,14 @@ def plugin_init(data):
 
 async def plugin_send(data, payload, stream_id):
     # stream_id (log?)
-    try:
-        is_data_sent, new_last_object_id, num_sent = await http_north.send_payloads(payload)
-    except asyncio.CancelledError:
-        pass
-    else:
-        return is_data_sent, new_last_object_id, num_sent
+    asset_list = config['assetList']['value'].split(",")
+    if asset_list == [] or payload['asset'] in asset_list:
+        try:
+            is_data_sent, new_last_object_id, num_sent = await http_north.send_payloads(payload)
+        except asyncio.CancelledError:
+            pass
+        else:
+            return is_data_sent, new_last_object_id, num_sent
 
 
 def plugin_shutdown(data):
@@ -177,6 +193,7 @@ class HttpNorthPlugin(object):
             for p in payloads:
                 last_object_id = p["id"]
                 read = dict()
+                read["dbms"] = config['dbName']['value']
                 read["asset"] = p['asset_code'].replace(' ','_').replace('/', '_')
                 read["readings"] = p['reading']
                 for k,v in read['readings'].items():
@@ -214,7 +231,7 @@ class HttpNorthPlugin(object):
         """ Send the payload, using provided socket session """
         headers = {
             'command': 'data',
-            'topic': 'fledge',
+            'topic': config['topicName']['value'],
             'User-Agent': 'AnyLog/1.23',
             'content-type': 'text/plain'
         }
