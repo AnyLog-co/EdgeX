@@ -91,14 +91,14 @@ _DEFAULT_CONFIG = {
         "default": "",
         "order": "7",
         "displayName": "Asset List"
-    }
+    },
     "dbName": {
         "description": "Logical database name",
         "type": "string",
         "default": "foglamp",
         "order": "8",
         "displayName": "Database Name"
-    },
+    }
 }
 
 
@@ -123,9 +123,13 @@ def plugin_init(data):
 async def plugin_send(data, payload, stream_id):
     # stream_id (log?)
     asset_list = config['assetList']['value'].split(",")
-    if asset_list == [] or payload['asset'] in asset_list:
+    payloads = [] 
+    for p in payload: 
+        if p['asset_code'] in asset_list or asset_list is []:
+            payloads.append(p) 
+    if payloads is not []: 
         try:
-            is_data_sent, new_last_object_id, num_sent = await http_north.send_payloads(payload)
+            is_data_sent, new_last_object_id, num_sent = await http_north.send_payloads(payloads)
         except asyncio.CancelledError:
             pass
         else:
