@@ -177,7 +177,7 @@ class HttpNorthPlugin(object):
             for p in payloads:
                 last_object_id = p["id"]
                 read = dict()
-                read["asset"] = p['asset_code']
+                read["asset"] = p['asset_code'].replace(' ','_').replace('/', '_')
                 read["readings"] = p['reading']
                 for k,v in read['readings'].items():
                     if isinstance(v, np.ndarray):
@@ -216,9 +216,9 @@ class HttpNorthPlugin(object):
             'command': 'data',
             'topic': 'fledge',
             'User-Agent': 'AnyLog/1.23',
-            'content-type': 'text/plain'}
-        async with open(FILE_PATH, 'a') as f:
-            f.write(f'{_DEFAULT_CONFIG}\n{payload}\n\n')
+            'content-type': 'text/plain'
+        }
+
         async with session.post(f'http://{url}', data=json.dumps(payload), headers=headers) as resp:
             result = await resp.text()
             status_code = resp.status
