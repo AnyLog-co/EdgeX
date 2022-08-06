@@ -13,6 +13,7 @@ import os
 import logging
 import base64
 
+import random
 import numpy as np
 
 from fledge.common import logger
@@ -221,17 +222,16 @@ class HttpNorthPlugin(object):
         num_count = 0
         try:
             verify_ssl = False if config["verifySSL"]['value'] == 'false' else True
-            url = config['url']['value']
             connector = aiohttp.TCPConnector(verify_ssl=verify_ssl)
             async with aiohttp.ClientSession(connector=connector) as session:
-                result = await self._send(url, payload_block, session)
+                result = await self._send(payload_block, session)
         except:
             pass
         else: 
             num_count += len(payload_block)
         return num_count
 
-    async def _send(self, url, payload, session):
+    async def _send(self,  payload, session):
         """ Send the payload, using provided socket session """
         headers = {
             'command': 'data',
@@ -239,7 +239,7 @@ class HttpNorthPlugin(object):
             'User-Agent': 'AnyLog/1.23',
             'content-type': 'text/plain'
         }
-
+        url = random.choice(config['url']['value'].split(',')).strip() 
         async with session.post(f'http://{url}', data=json.dumps(payload), headers=headers) as resp:
             result = await resp.text()
             status_code = resp.status
