@@ -9,11 +9,15 @@ no assets are declared in the configuration, then all assets will be sent agains
 nodes.
 
 ## Deployment & Configuring on the Fledge Side
-0. [Deploy FLEDDGE](https://fledge-iot.readthedocs.io/en/latest/quick_start/index.html) 
+0. [Deploy FLEDDGE](https://fledge-iot.readthedocs.io/en/latest/quick_start/index.html) + Install numpy pacakge
+```
+python3 -m pip installl numpy
+```
 
 1. Copy [anylog_rest_conn](anylog_rest_conn) into the `plugins/north` FLEDGE directory.
 ```bash
-sudo cp -r $HOME/lfedge-code/fledge/anylog_rest_conn/ /usr/local/fledge/python/fledge/plugins/north 
+cd lfedge-code/fledge/
+cp -r anylog_rest_conn/ /usr/local/fledge/python/fledge/plugins/north/
 ```
 
 2. Begin sending data & view `readings` columns. - We'll be using the OpenWeatherMap asset as an example
