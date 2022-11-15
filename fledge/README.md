@@ -11,7 +11,7 @@ nodes.
 ## Deployment & Configuring on the Fledge Side
 0. [Deploy FLEDDGE](https://fledge-iot.readthedocs.io/en/latest/quick_start/index.html) 
 
-1. Copy [anylog_rest_conn](anylog_rest_conn) into the `plugins/north` FLEDGE directory.
+1. Copy [anylog_rest_conn](fledge_north_anylog_http) into the `plugins/north` FLEDGE directory.
 ```bash
 sudo cp -r $HOME/lfedge-code/fledge/anylog_rest_conn/ /usr/local/fledge/python/fledge/plugins/north 
 ```

@@ -31,14 +31,14 @@ _LOGGER = logger.setup(__name__, level=logging.INFO)
 http_north = None
 config = ""
 
-_CONFIG_CATEGORY_NAME = "AnyLog-Conn"
-_CONFIG_CATEGORY_DESCRIPTION = "Send Data via REST into AnyLog"
+_CONFIG_CATEGORY_NAME = "HTTP"
+_CONFIG_CATEGORY_DESCRIPTION = "HTTP North Plugin for AnyLog"
 
 _DEFAULT_CONFIG = {
     'plugin': {
          'description': 'HTTP North Plugin',
          'type': 'string',
-         'default': 'anylog_rest_conn',
+         'default': 'fledge_north_anylog_http',
          'readonly': 'true'
     },
     'url': {
