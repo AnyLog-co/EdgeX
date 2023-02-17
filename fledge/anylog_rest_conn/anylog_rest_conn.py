@@ -39,7 +39,7 @@ _DEFAULT_CONFIG = {
     'plugin': {
          'description': 'HTTP North Plugin',
          'type': 'string',
-         'default': 'anylog_http',
+         'default': 'anylog_rest_conn',
          'readonly': 'true'
     },
     'url': {
@@ -228,7 +228,6 @@ class HttpNorthPlugin(object):
 
     async def _send_payloads(self, payload_block):
         """ send a list of block payloads"""
-
         num_count = 0
         try:
             verify_ssl = False if config["verifySSL"]['value'] == 'false' else True
