@@ -9,6 +9,7 @@ services:
     working_dir: /app
     volumes:
       - fledge-data:/usr/local/fledge
+      - fledge-plugins:/usr/local/fledge/python/fledge/plugins
   fledge-gui:
     image: robraesemann/fledge-gui:latest
     restart: always
@@ -18,3 +19,4 @@ services:
       - fledge
 volumes:
   fledge-data:
+  fledge-plugins:
