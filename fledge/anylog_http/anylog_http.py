@@ -38,7 +38,7 @@ _DEFAULT_CONFIG = {
     'plugin': {
          'description': 'HTTP North Plugin',
          'type': 'string',
-         'default': 'fledge_north_anylog_http',
+         'default': 'anylog_http',
          'readonly': 'true'
     },
     'url': {
