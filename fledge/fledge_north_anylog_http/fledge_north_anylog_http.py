@@ -48,55 +48,65 @@ _DEFAULT_CONFIG = {
         'order': '1',
         'displayName': 'URL'
     },
+    "restFormat": {
+        "description": "Whether to send the data via POST or PUT",
+        "type": "enumeration",
+        "default": "post",
+        "options": ["post", "put"],
+        "order": '2',
+        "displayName": "REST Protocol"
+    },
     "source": {
          "description": "Source of data to be sent on the stream. May be either readings or statistics.",
          "type": "enumeration",
          "default": "readings",
          "options": [ "readings", "statistics" ],
-         'order': '2',
+         'order': '3',
          'displayName': 'Source'
     },
     "verifySSL": {
         "description": "Verify SSL certificate",
         "type": "boolean",
         "default": "false",
-        'order': '3',
+        'order': '4',
         'displayName': 'Verify SSL'
     },
     "applyFilter": {
         "description": "Should filter be applied before processing data",
         "type": "boolean",
         "default": "false",
-        'order': '4',
+        'order': '5',
         'displayName': 'Apply Filter'
     },
     "filterRule": {
         "description": "JQ formatted filter to apply (only applicable if applyFilter is True)",
         "type": "string",
         "default": ".[]",
-        'order': '5',
+        'order': '6',
         'displayName': 'Filter Rule',
         "validity": "applyFilter == \"true\""
     },
     "topicName": {
         "description": "Topic to send data to",
         "type": "string",
-        "default": "foglamp",
-        "order": "6",
-        "displayName": "REST Topic Name"
+        "default": "fledge",
+        "order": '7',
+        "displayName": "REST Topic Name",
+        "validity": "restFormat == \"post\"",
     },
     "assetList": {
-        "description": "Comma separatedd assets to use with this topic",
+        "description": "Comma separated assets to use with this topic",
         "type": "string",
         "default": "",
-        "order": "7",
-        "displayName": "Asset List"
+        "order": '8',
+        "displayName": "Asset List",
+        "validity": "restFormat == \"post\"",
     },
     "dbName": {
         "description": "Logical database name",
         "type": "string",
-        "default": "foglamp",
-        "order": "8",
+        "default": "fledge",
+        "order": '9',
         "displayName": "Database Name"
     }
 }
@@ -193,19 +203,19 @@ class HttpNorthPlugin(object):
         num_sent = 0
         try:
             payload_block = list()
+            for payload in payloads:
+                last_object_id = payload["id"]
+                read = {
+                    "dbms": config['dbName']['value'],
+                    "asset": payload['asset_code'].replace(' ','_').replace('/', '_'),
+                    "timestamp": payload['user_ts'],
+                    "readings": payload["reading"]
+                }
 
-            for p in payloads:
-                last_object_id = p["id"]
-                read = dict()
-                read["dbms"] = config['dbName']['value']
-                read["asset"] = p['asset_code'].replace(' ','_').replace('/', '_')
-                read["readings"] = p['reading']
-                for k,v in read['readings'].items():
-                    if isinstance(v, np.ndarray):
-                        serialized_data_base64 = json.dumps(v, cls=NumpyEncoderBase64)
-                        read['readings'][k] = serialized_data_base64
+                for key,value in read["readings"].items():
+                    if isinstance(value, np.ndarray):
+                        read["readings"][key] = json.dumps(value, cls=NumpyEncoderBase64)
 
-                read["timestamp"] = p['user_ts']
                 payload_block.append(read)
 
             num_sent = await self._send_payloads(payload_block)
@@ -231,8 +241,7 @@ class HttpNorthPlugin(object):
             num_count += len(payload_block)
         return num_count
 
-    async def _send(self, url, payload, session):
-        """ Send the payload, using provided socket session """
+    async def _post_data(self, url, payload, session):
         headers = {
             'command': 'data',
             'topic': config['topicName']['value'],
@@ -250,3 +259,37 @@ class HttpNorthPlugin(object):
                 _LOGGER.error("Server error code: %d, reason: %s", status_code, resp.reason)
                 raise Exception
             return result
+
+    async def _put_data(self, url, payload, session):
+        headers = {
+            'type': 'json',
+            'dbms': payload['dbms'],
+            'table': payload['asset'],
+            'mode': 'streaming',
+            'Content-Type': 'text/plain'
+        }
+
+        data = {"timestamp": payload['timestamp']}
+
+        for key in payload['readings']:
+            data[key] = data['readings'][key]
+
+        async with session.put(f'http://{url}', data=json.dumps(data), headers=headers) as resp:
+            result = await resp.text()
+            status_code = resp.status
+            if status_code in range(400, 500):
+                _LOGGER.error("Bad request error code: %d, reason: %s", status_code, resp.reason)
+                raise Exception
+            if status_code in range(500, 600):
+                _LOGGER.error("Server error code: %d, reason: %s", status_code, resp.reason)
+                raise Exception
+            return result
+
+    async def _send(self, url, payloads, session):
+        """ Send the payload, using provided socket session """
+        if config['restFormat']['value'] == "post":
+            result = await self._post_data(url=url, payload=payloads, session=session)
+        if config['restFormat']['value'] == 'put':
+            for payload in payloads:
+                result = await self._put_data(url=url, payload=payload, session=session)
+        return result
