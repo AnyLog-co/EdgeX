@@ -1,22 +1,46 @@
 # Fledge
 
 The following code is based on [fledge-http-north](https://github.com/fledge-iot/fledge-north-http), but instead of 
-sending data between FLEDGE nodes, it allows sending data into AnyLog via REST POST. The main difference between two 
-plugins are: 
-1. `plugin_send` checks that there's a correlation between the declared asset(s) and the topic they're sent to. If
-no assets are declared in the configuration, then all assets will be sent against the given topic.  
-2. `_send_payloads` has an updated REST _header_, which is supported by AnyLog; rather than the one used between FLEDGE    
-nodes.
+sending data between FLEDGE nodes, it allows sending data into AnyLog via _POST_ or _PUT_. 
+
+* [Docker Hub](https://hub.docker.com/r/robraesemann/fledge)
+* [Fledge Documentation](https://fledge-iot.readthedocs.io/en/latest/quick_start/index.html)
 
 ## Deployment & Configuring on the Fledge Side
-0. [Deploy FLEDDGE](https://fledge-iot.readthedocs.io/en/latest/quick_start/index.html) 
+The following deployment is using docker-compose packages created by [Rob Raesemann](https://hub.docker.com/u/robraesemann)
 
-1. Copy [anylog_rest_conn](fledge_north_anylog_http) into the `plugins/north` FLEDGE directory.
-```bash
-sudo cp -r $HOME/lfedge-code/fledge/anylog_rest_conn/ /usr/local/fledge/python/fledge/plugins/north 
+0. Install docker & docker-compose 
+
+1. Clone lfedge-code
+```shell
+git clone https://github.com/AnyLog-co/lfedge-code 
 ```
 
-2. Begin sending data & view `readings` columns. - We'll be using the OpenWeatherMap asset as an example
+2. Deploy Fledge + Fledge GUI
+```shell
+cd lfedge-code/fledge 
+docker-compose up -d 
+```
+
+3. Attach to `fledge` container
+```shell
+docker exec -it --detach-keys=ctrl-d fledge bash
+```
+
+4. Clone lfedge code into the container  
+```shell
+git clone https://github.com/AnyLog-co/lfedge-code 
+```
+
+5. Copy anylog_plugin into _FLEDGE_
+```shell
+cp -r /app/lfedge-code/fledge/anylog_rest_conn/ /usr/local/fledge/python/fledge/plugins/north/
+```
+
+On the Fledge GUI - URL:  http://${YOUR_IP}/
+
+
+1. Begin sending data & view `readings` columns. - We'll be using the OpenWeatherMap asset as an example
 ```json
 # Sample data being generated
 {
@@ -34,7 +58,7 @@ sudo cp -r $HOME/lfedge-code/fledge/anylog_rest_conn/ /usr/local/fledge/python/f
 }
 ```
 
-3. Under the _North_ section add `anylog_rest_conn` 
+2. Under the _North_ section add `anylog_rest_conn` 
    * **URL** - The IP:Port address to send data to
    * **REST Topic Name** - REST topic to send data to
    * **Asset List**: - Comma separated list of assets to send using this AnyLog connection. If no assets set, then data 
@@ -42,75 +66,16 @@ sudo cp -r $HOME/lfedge-code/fledge/anylog_rest_conn/ /usr/local/fledge/python/f
    * **Database Name** - logical database to store data in AnyLog
 ![North Plugin Configs](imgs/north_plugin.png)
 
-At this point data will sent into AnyLog via REST. 
+At this point data will send into AnyLog via REST. 
 
 
 ## Configuring AnyLog REST Client
-1. On FLEDGE check the readings you're sending into AnyLog - in this case OpenWeather data
-![Asset Readings](imgs/asset_readings.png)
+When sending data via _PUT_, all that's required is for AnyLog to accept REST requests - which is done by default. 
 
-2. locate the `local_scripts` directory
-```bash
-docker volume inspect anylog-node_anylog-node-local-scripts 
-[
-    {
-        "CreatedAt": "2022-06-24T17:42:57Z",
-        "Driver": "local",
-        "Labels": {
-            "com.docker.compose.project": "anylog-node",
-            "com.docker.compose.version": "1.29.2",
-            "com.docker.compose.volume": "anylog-node-local-scripts"
-        },
-        "Mountpoint": "/var/lib/docker/volumes/anylog-node_anylog-node-local-scripts/_data",
-        "Name": "anylog-node_anylog-node-local-scripts",
-        "Options": null,
-        "Scope": "local"
-    }
-]
-```
+When sending data via _POST_, an MQTT client accepting the requests should be running. 
 
-3. vim into `/var/lib/docker/volumes/anylog-node_anylog-node-local-scripts/_data/local_script.al`
-```bash 
-vim /var/lib/docker/volumes/anylog-node_anylog-node-local-scripts/_data/local_script.al
-```
+[fledge.al](fledge.al) provides an example for receiving data from the [random](https://github.com/fledge-iot/fledge-south-random) 
+data generator FLEDGE southbound plugin, and the [OpenWeatherMap](https://github.com/fledge-iot/fledge-south-openweathermap) 
+southbound plugin.
 
-4. Update file
-```anylog
-# The following file is intended as a placeholder for user implemented code. The file is automatically called by master,
-# operator, publisher, query or single_node (operator / publisher) files. If not is written then nothing runs.
-#
-# Sample commands could include things like;
-#   * complicated MQTT calls
-#   * Kafka requests
-#   * non-standard schedule processes, such as recording disk usage and automated queries
-#
-# Documentation: https://github.com/AnyLog-co/documentation
-#-----------------------------------------------------------------------------------------------------------------------
-# process !anylog_path/AnyLog-Network/scripts/local_script.al
-
-<run mqtt client where broker=rest and port=!anylog_rest_port and user-agent=anylog and log=false and topic=(
-   name=fledge and
-   dbms="bring [dbms]" and
-   table="bring [asset]" and
-   column.timestamp.timestamp="bring [timestamp]" and
-   column.city=(type=str and value="bring [readdings][city]") and
-   column.wind_speed=(type=float and value="bring [readdings][wind_speed]") and
-   column.clouds=(type=float and value="bring [readdings][clouds]") and
-   column.temperature=(type=float and value="bring [readdings][temperature]") and
-   column.humidity=(type=float and value="bring [readdings][humidity]") and
-   column.visibility=(type=float and value="bring [readdings][visibility]") and
-)>
-```
-
-5. Execute `local_script.al` against AnyLog 
-```bash 
-# Within AnyLog User-CMD 
-process  !anylog_path/AnyLog-Network/scripts/local_script.al
-
-# via cURL 
-curl -X POST ${IP}:${REST_PORT} -H "command: process /app/AnyLog-Network/scripts/local_script.al" -H "User-Agent: AnyLog/1.23"
-```
-
-6. Update configuration file to have `DEPLOY_LOCAL_SCRIPT` set to true so that in the future the script will run automatically.
-
-
+In AnyLog, the script [fledge.al](fledge.al) can be found under `!local_scripts/sample_code/fledge.al`
