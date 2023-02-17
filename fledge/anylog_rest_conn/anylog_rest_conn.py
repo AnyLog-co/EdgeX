@@ -11,12 +11,13 @@ import asyncio
 import json
 import os
 import logging
-import base64
 
-import numpy as np
+
+import random
 
 from fledge.common import logger
 from fledge.plugins.north.common.common import *
+from numpy_encoder import *
 
 FILE_PATH=os.path.expandvars(os.path.expanduser('$HOME/data.json'))
 
@@ -31,8 +32,8 @@ _LOGGER = logger.setup(__name__, level=logging.INFO)
 http_north = None
 config = ""
 
-_CONFIG_CATEGORY_NAME = "HTTP"
-_CONFIG_CATEGORY_DESCRIPTION = "HTTP North Plugin for AnyLog"
+_CONFIG_CATEGORY_NAME = "AnyLog-Conn"
+_CONFIG_CATEGORY_DESCRIPTION = "Send Data via REST into AnyLog"
 
 _DEFAULT_CONFIG = {
     'plugin': {
@@ -155,42 +156,6 @@ def plugin_reconfigure():
     pass
 
 
-# https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array/24375113#24375113
-
-class NumpyEncoder(json.JSONEncoder):
-
-    def default(self, obj):
-        """If input object is an ndarray it will be converted into a dict 
-        holding dtype, shape and the data
-        """
-        if isinstance(obj, np.ndarray):
-            obj_data = np.ascontiguousarray(obj).data
-            data_list = obj_data.tolist()
-            return dict(__ndarray__=data_list,
-                        dtype=str(obj.dtype),
-                        shape=obj.shape)
-        # Let the base class default method raise the TypeError
-        super(NumpyEncoder, self).default(obj)
-
-class NumpyEncoderBase64(json.JSONEncoder):
-
-    def default(self, obj):
-        """If input object is an ndarray it will be converted into a dict 
-        holding dtype, shape and the data
-        """
-        if isinstance(obj, np.ndarray):
-            obj_data = np.ascontiguousarray(obj).data
-            data_list = base64.b64encode(obj_data)
-            if isinstance(data_list, bytes):
-                data_list = data_list.decode(encoding='UTF-8')
-            return dict(__ndarray__=data_list,
-                        dtype=str(obj.dtype),
-                        shape=obj.shape)
-
-        # Let the base class default method raise the TypeError
-        super(NumpyEncoderBase64, self).default(obj)
-
-
 class HttpNorthPlugin(object):
     """ North HTTP Plugin """
 
@@ -203,16 +168,17 @@ class HttpNorthPlugin(object):
         num_sent = 0
         try:
             payload_block = list()
+
             for payload in payloads:
                 last_object_id = payload["id"]
                 read = {
                     "dbms": config['dbName']['value'],
-                    "asset": payload['asset_code'].replace(' ','_').replace('/', '_'),
+                    "asset": payload['asset_code'].replace(' ', '_').replace('/', '_'),
                     "timestamp": payload['user_ts'],
                     "readings": payload["reading"]
                 }
 
-                for key,value in read["readings"].items():
+                for key, value in read["readings"].items():
                     if isinstance(value, np.ndarray):
                         read["readings"][key] = json.dumps(value, cls=NumpyEncoderBase64)
 
@@ -231,10 +197,9 @@ class HttpNorthPlugin(object):
         num_count = 0
         try:
             verify_ssl = False if config["verifySSL"]['value'] == 'false' else True
-            url = config['url']['value']
             connector = aiohttp.TCPConnector(verify_ssl=verify_ssl)
             async with aiohttp.ClientSession(connector=connector) as session:
-                result = await self._send(url, payload_block, session)
+                result = await self._send(payload_block, session)
         except:
             pass
         else: 
