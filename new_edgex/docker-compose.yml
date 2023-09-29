@@ -1,3 +1,4 @@
+name: edgex
 services:
   app-rules-engine:
     container_name: edgex-app-rules-engine
