@@ -8,16 +8,16 @@
 
 import aiohttp
 import asyncio
-import json
 import os
 import logging
 import base64
-
-import random
+import json
 import numpy as np
+
 
 from fledge.common import logger
 from fledge.plugins.north.common.common import *
+
 
 FILE_PATH=os.path.expandvars(os.path.expanduser('$HOME/data.json'))
 
@@ -49,58 +49,103 @@ _DEFAULT_CONFIG = {
         'order': '1',
         'displayName': 'URL'
     },
+    "restFormat": {
+        "description": "Whether to send the data via POST or PUT",
+        "type": "enumeration",
+        "default": "post",
+        "options": ["post", "put"],
+        "order": '2',
+        "displayName": "REST Protocol"
+    },
     "source": {
          "description": "Source of data to be sent on the stream. May be either readings or statistics.",
          "type": "enumeration",
          "default": "readings",
          "options": [ "readings", "statistics" ],
-         'order': '2',
+         'order': '3',
          'displayName': 'Source'
     },
     "verifySSL": {
         "description": "Verify SSL certificate",
         "type": "boolean",
         "default": "false",
-        'order': '3',
+        'order': '4',
         'displayName': 'Verify SSL'
     },
     "applyFilter": {
         "description": "Should filter be applied before processing data",
         "type": "boolean",
         "default": "false",
-        'order': '4',
+        'order': '5',
         'displayName': 'Apply Filter'
     },
     "filterRule": {
         "description": "JQ formatted filter to apply (only applicable if applyFilter is True)",
         "type": "string",
         "default": ".[]",
-        'order': '5',
+        'order': '6',
         'displayName': 'Filter Rule',
         "validity": "applyFilter == \"true\""
     },
     "topicName": {
         "description": "Topic to send data to",
         "type": "string",
-        "default": "foglamp",
-        "order": "6",
-        "displayName": "REST Topic Name"
+        "default": "fledge",
+        "order": '7',
+        "displayName": "REST Topic Name",
+        "validity": "restFormat == \"post\"",
     },
     "assetList": {
-        "description": "Comma separatedd assets to use with this topic",
+        "description": "Comma separated assets to use with this topic",
         "type": "string",
         "default": "",
-        "order": "7",
-        "displayName": "Asset List"
+        "order": '8',
+        "displayName": "Asset List",
+        "validity": "restFormat == \"post\"",
     },
     "dbName": {
         "description": "Logical database name",
         "type": "string",
-        "default": "foglamp",
-        "order": "8",
+        "default": "fledge",
+        "order": '9',
         "displayName": "Database Name"
     }
 }
+
+
+# https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array/24375113#24375113
+class NumpyEncoder(json.JSONEncoder):
+
+    def default(self, obj):
+        """If input object is an ndarray it will be converted into a dict
+        holding dtype, shape and the data
+        """
+        if isinstance(obj, np.ndarray):
+            obj_data = np.ascontiguousarray(obj).data
+            data_list = obj_data.tolist()
+            return dict(__ndarray__=data_list,
+                        dtype=str(obj.dtype),
+                        shape=obj.shape)
+        # Let the base class default method raise the TypeError
+        super(NumpyEncoder, self).default(obj)
+
+class NumpyEncoderBase64(json.JSONEncoder):
+
+    def default(self, obj):
+        """If input object is an ndarray it will be converted into a dict
+        holding dtype, shape and the data
+        """
+        if isinstance(obj, np.ndarray):
+            obj_data = np.ascontiguousarray(obj).data
+            data_list = base64.b64encode(obj_data)
+            if isinstance(data_list, bytes):
+                data_list = data_list.decode(encoding='UTF-8')
+            return dict(__ndarray__=data_list,
+                        dtype=str(obj.dtype),
+                        shape=obj.shape)
+
+        # Let the base class default method raise the TypeError
+        super(NumpyEncoderBase64, self).default(obj)
 
 
 def plugin_info():
@@ -146,42 +191,6 @@ def plugin_reconfigure():
     pass
 
 
-# https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array/24375113#24375113
-
-class NumpyEncoder(json.JSONEncoder):
-
-    def default(self, obj):
-        """If input object is an ndarray it will be converted into a dict 
-        holding dtype, shape and the data
-        """
-        if isinstance(obj, np.ndarray):
-            obj_data = np.ascontiguousarray(obj).data
-            data_list = obj_data.tolist()
-            return dict(__ndarray__=data_list,
-                        dtype=str(obj.dtype),
-                        shape=obj.shape)
-        # Let the base class default method raise the TypeError
-        super(NumpyEncoder, self).default(obj)
-
-class NumpyEncoderBase64(json.JSONEncoder):
-
-    def default(self, obj):
-        """If input object is an ndarray it will be converted into a dict 
-        holding dtype, shape and the data
-        """
-        if isinstance(obj, np.ndarray):
-            obj_data = np.ascontiguousarray(obj).data
-            data_list = base64.b64encode(obj_data)
-            if isinstance(data_list, bytes):
-                data_list = data_list.decode(encoding='UTF-8')
-            return dict(__ndarray__=data_list,
-                        dtype=str(obj.dtype),
-                        shape=obj.shape)
-
-        # Let the base class default method raise the TypeError
-        super(NumpyEncoderBase64, self).default(obj)
-
-
 class HttpNorthPlugin(object):
     """ North HTTP Plugin """
 
@@ -195,18 +204,19 @@ class HttpNorthPlugin(object):
         try:
             payload_block = list()
 
-            for p in payloads:
-                last_object_id = p["id"]
-                read = dict()
-                read["dbms"] = config['dbName']['value']
-                read["asset"] = p['asset_code'].replace(' ','_').replace('/', '_')
-                read["readings"] = p['reading']
-                for k,v in read['readings'].items():
-                    if isinstance(v, np.ndarray):
-                        serialized_data_base64 = json.dumps(v, cls=NumpyEncoderBase64)
-                        read['readings'][k] = serialized_data_base64
+            for payload in payloads:
+                last_object_id = payload["id"]
+                read = {
+                    "dbms": config['dbName']['value'],
+                    "asset": payload['asset_code'].replace(' ', '_').replace('/', '_'),
+                    "timestamp": payload['user_ts'],
+                    "readings": payload["reading"]
+                }
 
-                read["timestamp"] = p['user_ts']
+                for key, value in read["readings"].items():
+                    if isinstance(value, np.ndarray):
+                        read["readings"][key] = json.dumps(value, cls=NumpyEncoderBase64)
+
                 payload_block.append(read)
 
             num_sent = await self._send_payloads(payload_block)
@@ -218,7 +228,6 @@ class HttpNorthPlugin(object):
 
     async def _send_payloads(self, payload_block):
         """ send a list of block payloads"""
-
         num_count = 0
         try:
             verify_ssl = False if config["verifySSL"]['value'] == 'false' else True
@@ -231,15 +240,14 @@ class HttpNorthPlugin(object):
             num_count += len(payload_block)
         return num_count
 
-    async def _send(self,  payload, session):
-        """ Send the payload, using provided socket session """
+    async def _post_data(self, url, payload, session):
         headers = {
             'command': 'data',
             'topic': config['topicName']['value'],
             'User-Agent': 'AnyLog/1.23',
             'content-type': 'text/plain'
         }
-        url = random.choice(config['url']['value'].split(',')).strip() 
+
         async with session.post(f'http://{url}', data=json.dumps(payload), headers=headers) as resp:
             result = await resp.text()
             status_code = resp.status
@@ -250,3 +258,37 @@ class HttpNorthPlugin(object):
                 _LOGGER.error("Server error code: %d, reason: %s", status_code, resp.reason)
                 raise Exception
             return result
+
+    async def _put_data(self, url, payload, session):
+        headers = {
+            'type': 'json',
+            'dbms': payload['dbms'],
+            'table': payload['asset'],
+            'mode': 'streaming',
+            'Content-Type': 'text/plain'
+        }
+
+        data = {"timestamp": payload['timestamp']}
+
+        for key in payload['readings']:
+            data[key] = data['readings'][key]
+
+        async with session.put(f'http://{url}', data=json.dumps(data), headers=headers) as resp:
+            result = await resp.text()
+            status_code = resp.status
+            if status_code in range(400, 500):
+                _LOGGER.error("Bad request error code: %d, reason: %s", status_code, resp.reason)
+                raise Exception
+            if status_code in range(500, 600):
+                _LOGGER.error("Server error code: %d, reason: %s", status_code, resp.reason)
+                raise Exception
+            return result
+
+    async def _send(self, url, payloads, session):
+        """ Send the payload, using provided socket session """
+        if config['restFormat']['value'] == "post":
+            result = await self._post_data(url=url, payload=payloads, session=session)
+        if config['restFormat']['value'] == 'put':
+            for payload in payloads:
+                result = await self._put_data(url=url, payload=payload, session=session)
+        return result
